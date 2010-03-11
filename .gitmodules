@@ -1,0 +1,9 @@
+[submodule "lib/boxgrinder"]
+	path = lib/boxgrinder
+	url = git://github.com/stormgrind/boxgrinder-build.git
+[submodule "lib/boxgrinder-core"]
+	path = lib/boxgrinder-core
+	url = git://github.com/stormgrind/boxgrinder-core.git
+[submodule "lib/boxgrinder-build"]
+	path = lib/boxgrinder-build
+	url = git://github.com/stormgrind/boxgrinder-build.git
