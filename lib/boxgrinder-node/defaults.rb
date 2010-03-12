@@ -18,27 +18,17 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-module BoxGrinderREST
-  class ExecHelper
-    def initialize( options = {} )
-      @log = options[:log] || Logger.new(STDOUT)
-    end
+module BoxGrinder
+  module Node
+    BASE_DIR = File.dirname( __FILE__ )
 
-    def execute( command, file = nil )
-      @log.debug "Executing command: '#{command}'"
+    IMAGE_MANAGEMENT_QUEUE    = '/queues/boxgrinder/manage/image'
+    NODE_MANAGEMENT_QUEUE     = '/queues/boxgrinder/manage/node'
+    PACKAGE_MANAGEMENT_QUEUE  = '/queues/boxgrinder/manage/package'
 
-      out = `#{command} 2>&1`
+    DEFAULT_NAMING_HOST       = "localhost"
+    DEFAULT_NAMING_PORT       = 1099
 
-      formatted_output = "Command return:\r\n+++++\r\n#{out}+++++"
-
-      if $?.to_i != 0
-        @log.error formatted_output
-        raise "An error occurred executing command: '#{command}'"
-      else
-        @log.debug formatted_output unless out.strip.length == 0
-        @log.debug "Command '#{command}' executed successfully"
-        return out
-      end
-    end
+    DEFAULT_NODE_LOG_LOCATION = 'log/node.log'
   end
 end

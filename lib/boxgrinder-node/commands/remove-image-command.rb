@@ -1,5 +1,3 @@
-require 'helpers/exec-helper'
-
 module BoxGrinderREST
   class RemoveImageCommand
     def initialize( image, options = {} )

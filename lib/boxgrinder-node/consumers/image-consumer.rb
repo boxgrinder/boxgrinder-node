@@ -1,6 +1,5 @@
-require 'commands/build-image-command'
-require 'commands/remove-image-command'
-require 'models/image'
+require 'boxgrinder-node/commands/build-image-command'
+require 'boxgrinder-node/commands/remove-image-command'
 require 'boxgrinder-core/models/appliance-config'
 
 module BoxGrinder
@@ -12,11 +11,6 @@ module BoxGrinder
         @log = LOG
 
         @log.info "Received new task."
-
-        puts @task.to_yaml
-
-        sleep 10
-        puts "done"
 
         case @task.action
           when Image::ACTIONS[:build] then
