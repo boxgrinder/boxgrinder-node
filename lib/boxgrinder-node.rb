@@ -18,9 +18,10 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-$: << File.join( File.dirname( __FILE__ ), 'lib' )
-$: << File.join( File.dirname( __FILE__ ), 'lib', 'boxgrinder-build', 'lib' )
-$: << File.join( File.dirname( __FILE__ ), 'lib', 'boxgrinder-build', 'lib', 'boxgrinder-core', 'lib' )
+require 'rubygems'
+
+gem 'torquebox-messaging-container', '>= 1.0.0'
+gem 'boxgrinder-build', '>= 0.0.1'
 
 require 'boxgrinder-node/initializer'
 

@@ -1,14 +1,16 @@
 require 'boxgrinder-node/helpers/queue-helper'
 require 'boxgrinder-core/helpers/exec-helper'
+require 'fileutils'
 
 module BoxGrinder
   module Node
     class BuildImageCommand
-
-      def initialize( task, options = {} )
+      def initialize( task, node_config, options = {} )
         @task             = task
+        @node_config      = node_config
+
         @log              = options[:log]           || Logger.new(STDOUT)
-        @queue_helper     = options[:queue_helper]  || QueueHelper.new( :log => @log )
+        @queue_helper     = options[:queue_helper]  || QueueHelper.new( @node_config, :log => @log )
         @exec_helper      = options[:exec_helper]   || ExecHelper.new( :log => @log )
 
         @appliance_config = @task.data[:appliance_config].init
@@ -34,28 +36,16 @@ module BoxGrinder
             @log.error "Not valid image format:' #{@format}'."
         end
 
-        @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status => :building }, "10.1.0.13" )
+        @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status => :building } )
 
         begin
-          @exec_helper.execute "rake #{command}"
+          #@exec_helper.execute "rake #{command}"
 
           @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format was built successfully."
-          @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE,
-                                 {
-                                         :id      => @image_id,
-                                         :status  => :built
-                                 },
-                                 "10.1.0.13"
-          )
+          @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status  => :built } )
         rescue
           @log.error "An error occurred while building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format. Check logs for more info."
-          @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE,
-                                 {
-                                         :id      => @image_id,
-                                         :status  => :error
-                                 },
-                                 "10.1.0.13"
-          )
+          @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status  => :error } )
         end
       end
 

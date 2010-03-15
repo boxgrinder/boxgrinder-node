@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 # JBoss, Home of Professional Open Source
 # Copyright 2009, Red Hat Middleware LLC, and individual contributors
 # by the @authors tag. See the copyright.txt in the distribution for a
@@ -18,24 +20,4 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'rubygems'
-require 'torquebox-messaging-client'
-
-module BoxGrinder
-  class QueueHelper
-    def initialize( node_config, options = {} )
-      @node_config = node_config
-
-      @log = options[:log] || Logger.new(STDOUT)
-    end
-
-    def enqueue( queue_name, object, host = @node_config.naming_host, port = @node_config.naming_port )
-      @log.info "Putting new message into queue '#{queue_name}'."
-      @log.debug "Message: #{object}."
-
-      TorqueBox::Messaging::Client.connect( :naming_provider_url => "jnp://#{host}:#{port}/" ) { |client| client.send( queue_name, :object => object ) }
-
-      @log.info "Message put into queue."
-    end
-  end
-end
+require 'boxgrinder-node'
