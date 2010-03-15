@@ -1,3 +1,4 @@
 log
 rpms-cache
 appliances
+*.gem
