@@ -20,15 +20,14 @@
 
 module BoxGrinder
   module Node
-    BASE_DIR = File.dirname( __FILE__ )
-
     IMAGE_MANAGEMENT_QUEUE    = '/queues/boxgrinder/manage/image'
     NODE_MANAGEMENT_QUEUE     = '/queues/boxgrinder/manage/node'
     PACKAGE_MANAGEMENT_QUEUE  = '/queues/boxgrinder/manage/package'
 
-    DEFAULT_NAMING_HOST       = "localhost"
+    DEFAULT_REST_SERVER       = "localhost"
     DEFAULT_NAMING_PORT       = 1099
 
-    DEFAULT_NODE_LOG_LOCATION = 'log/node.log'
+    DEFAULT_NODE_LOG_LOCATION     = 'log/node.log'
+    DEFAULT_NODE_CONFIG_LOCATION  = "#{ENV['HOME']}/.boxgrinder-node/config"
   end
 end

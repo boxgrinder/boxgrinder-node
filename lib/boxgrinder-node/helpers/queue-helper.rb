@@ -20,22 +20,22 @@
 
 require 'rubygems'
 require 'torquebox-messaging-client'
+require 'logger'
 
 module BoxGrinder
   class QueueHelper
-    def initialize( node_config, options = {} )
-      @node_config = node_config
-
-      @log = options[:log] || Logger.new(STDOUT)
+    def initialize( config, options = {} )
+      @config = config
+      @log    = options[:log] || Logger.new(STDOUT)
     end
 
-    def enqueue( queue_name, object, host = @node_config.naming_host, port = @node_config.naming_port )
-      @log.info "Putting new message into queue '#{queue_name}'."
-      @log.debug "Message: #{object}."
+    def enqueue( queue_name, object, host = @config.rest_server_address, port = @config.naming_port )
+      @log.debug "Putting new message into queue '#{queue_name}'."
+      @log.debug "Message:\n#{object.to_yaml}"
 
       TorqueBox::Messaging::Client.connect( :naming_provider_url => "jnp://#{host}:#{port}/" ) { |client| client.send( queue_name, :object => object ) }
 
-      @log.info "Message put into queue."
+      @log.debug "Message put into queue."
     end
   end
 end

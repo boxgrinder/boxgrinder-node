@@ -24,23 +24,34 @@ require 'rbconfig'
 module BoxGrinder
   module Node
     class NodeConfig
-      def initialize
-        config_file = ENV['BG_CONFIG_FILE'] || "#{ENV['HOME']}/.boxgrinder/config"
+      def initialize( config_file )
+        @os_name        = 'unknown'
+        @address        = get_current_ip
+        @arch           = RbConfig::CONFIG['host_cpu']
+        @build_location = Dir.pwd
 
         if File.exists?( config_file )
           config = YAML.load_file( config_file )
 
-          unless config['jms'].nil?
-            @naming_host = config['jms']['naming_host']
-            @naming_port = config['jms']['naming_port']
-          end
+          @rest_server_address  = config['rest_server_address']
+          @naming_port          = config['naming_port']
+          @log_location         = config['log_location']
+          @build_location       = config['build_location'] unless config['build_location'].nil?
         end
 
-        @naming_host ||= DEFAULT_NAMING_HOST
-        @naming_port ||= DEFAULT_NAMING_PORT
+        @log_location         ||= ENV['BG_LOG_LOCATION']
+        @rest_server_address  ||= DEFAULT_REST_SERVER
+        @naming_port          ||= DEFAULT_NAMING_PORT
+        @log_location         ||= DEFAULT_NODE_LOG_LOCATION
 
-        @address      = get_current_ip
-        @arch         = RbConfig::CONFIG['host_cpu']
+        if File.exists?( '/etc/redhat-release' )
+          redhat_release = File.read( '/etc/redhat-release' )
+
+          @os_name = 'rhel'   if redhat_release.match( /^Red Hat Enterprise Linux/ )
+          @os_name = 'fedora' if redhat_release.match( /^Fedora/ )
+
+          @os_version = redhat_release.scan(/\d+/).to_s
+        end
       end
 
       def get_current_ip
@@ -48,9 +59,13 @@ module BoxGrinder
       end
 
       attr_reader :address
-      attr_reader :naming_host
+      attr_reader :rest_server_address
       attr_reader :naming_port
+      attr_reader :build_location
+      attr_reader :log_location
       attr_reader :arch
+      attr_reader :os_name
+      attr_reader :os_version
     end
   end
 end

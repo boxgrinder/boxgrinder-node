@@ -1,18 +1,30 @@
-require 'boxgrinder-node/helpers/queue-helper'
-require 'boxgrinder-core/helpers/exec-helper'
+# JBoss, Home of Professional Open Source
+# Copyright 2009, Red Hat Middleware LLC, and individual contributors
+# by the @authors tag. See the copyright.txt in the distribution for a
+# full listing of individual contributors.
+#
+# This is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this software; if not, write to the Free
+# Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+# 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+
+require 'boxgrinder-node/commands/base-command'
 require 'fileutils'
 
 module BoxGrinder
   module Node
-    class BuildImageCommand
-      def initialize( task, node_config, options = {} )
-        @task             = task
-        @node_config      = node_config
-
-        @log              = options[:log]           || Logger.new(STDOUT)
-        @queue_helper     = options[:queue_helper]  || QueueHelper.new( @node_config, :log => @log )
-        @exec_helper      = options[:exec_helper]   || ExecHelper.new( :log => @log )
-
+    class BuildImageCommand < BaseCommand
+      def after_initialize
         @appliance_config = @task.data[:appliance_config].init
         @format           = @task.data[:format]
         @image_id         = @task.data[:image_id]
@@ -20,6 +32,7 @@ module BoxGrinder
 
       def execute
         store_definition
+        clean_build_directory
 
         @log.info "Building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format..."
 
@@ -39,7 +52,7 @@ module BoxGrinder
         @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status => :building } )
 
         begin
-          #@exec_helper.execute "rake #{command}"
+          @exec_helper.execute "cd #{@config.build_location} && boxgrinder #{command}"
 
           @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format was built successfully."
           @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status  => :built } )
@@ -49,10 +62,16 @@ module BoxGrinder
         end
       end
 
+      def clean_build_directory
+        @log.debug "Cleaning build directory for appliance #{@appliance_config.name}..."
+        @exec_helper.execute( "cd #{@config.build_location} && rm -rf build/appliances/#{@appliance_config.hardware.arch}/#{@appliance_config.os.name}/#{@appliance_config.os.version}/#{@appliance_config.name}/#{@format.downcase}" )
+        @log.debug "Build directory is clean."
+      end
+
       def store_definition
         @log.debug "Storing definition file for '#{@appliance_config.name}' appliance..."
 
-        appliances_dir  = "#{BASE_DIR}/appliances"
+        appliances_dir  = "#{@config.build_location}/appliances"
         file            = "#{appliances_dir}/#{@appliance_config.name}.appl"
 
         FileUtils.mkdir_p( appliances_dir )

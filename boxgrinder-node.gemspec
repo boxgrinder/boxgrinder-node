@@ -12,4 +12,6 @@ Gem::Specification.new do |s|
   s.executables << 'boxgrinder-node'
 
   s.add_dependency('boxgrinder-build', '>= 0.0.1')
+  s.add_dependency('torquebox-messaging-container', '>= 1.0.0')
+  s.add_dependency('torquebox-messaging-client', '>= 1.0.0')
 end

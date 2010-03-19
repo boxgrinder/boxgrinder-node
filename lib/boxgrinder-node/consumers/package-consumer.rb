@@ -18,38 +18,35 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'rubygems'
-require 'torquebox-messaging-container'
-require 'boxgrinder-core/helpers/log-helper'
-require 'boxgrinder-node/models/node-config'
-require 'boxgrinder-node/consumers/image-consumer'
-require 'boxgrinder-node/defaults'
+require 'boxgrinder-node/commands/build-package-command'
+require 'boxgrinder-core/models/appliance-config'
+require 'boxgrinder-core/models/task'
 
 module BoxGrinder
   module Node
+    class PackageConsumer
+      def on_object( payload )
+        @task         = payload
+        @log          = Node.log
+        @node_config  = Node.config
 
-    LOG         = LogHelper.new( DEFAULT_NODE_LOG_LOCATION )
-    NODE_CONFIG = NodeConfig.new
+        @log.info "Received new task."
+        @log.debug "Message:\n#{@task.to_yaml}"
 
-    class Initializer
-      def initialize
-        @log = LOG
-      end
+        begin
+          case @task.action
+            when :build then
+              BuildPackageCommand.new( @task, @node_config, :log => @log ).execute
+            else
+              raise "Not known Task action requested: #{@task.action}"
+          end
 
-      def listen
-        container = TorqueBox::Messaging::Container.new {
-          naming_provider_url "jnp://#{NODE_CONFIG.naming_host}:#{NODE_CONFIG.naming_port}/"
-
-          consumers {
-            map ImageConsumer, "/queues/boxgrinder/fedora/12/#{NODE_CONFIG.arch}/image"
-          }
-        }
-
-        @log.info "Starting BoxGrinder Node..."
-        container.start
-        @log.info "BoxGrinder Node is started and waiting for tasks."
-        container.wait_until( 'INT' )
-        @log.info "Shutting down BoxGrinder Node."
+          @log.info "Task handled."
+        rescue => e
+          @log.error e
+          @log.error "An error occurred while executing task. See above for more info."
+          # TODO resend information about error or put this task back into queue
+        end
       end
     end
   end

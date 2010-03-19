@@ -18,12 +18,25 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'rubygems'
+module BoxGrinder
+  module Node
+    class NodeConfigValidator
+      def initialize
+        raise "You're trying to run BoxGrinder Node on unsupported platform" unless File.exists?( '/etc/redhat-release' )
 
-gem 'torquebox-messaging-container', '>= 1.0.0'
-gem 'torquebox-messaging-client', '>= 1.0.0'
-gem 'boxgrinder-build', '>= 0.0.1'
+        redhat_release = File.read( '/etc/redhat-release' )
 
-require 'boxgrinder-node/node'
+        raise "You're trying to run BoxGrinder Node on unsupported platform" unless redhat_release.match( /^Red Hat Enterprise Linux/ ) or redhat_release.match( /^Fedora/ )
+      end
 
-BoxGrinder::Node::Node.new.listen
+      def validate( config_file )
+        return unless File.exists?( config_file )
+
+        config = YAML.load_file( config_file )
+
+        raise "Invalid config file" if config.nil?
+        raise "Build location path specified in config file (#{config['build_location']}) doesn't exist." unless config['build_location'].nil? or File.exists?( config['build_location'] )        
+      end
+    end
+  end
+end

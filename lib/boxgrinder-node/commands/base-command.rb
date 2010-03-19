@@ -18,12 +18,26 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'rubygems'
+require 'boxgrinder-node/helpers/queue-helper'
+require 'boxgrinder-core/helpers/exec-helper'
+require 'logger'
 
-gem 'torquebox-messaging-container', '>= 1.0.0'
-gem 'torquebox-messaging-client', '>= 1.0.0'
-gem 'boxgrinder-build', '>= 0.0.1'
+module BoxGrinder
+  module Node
+    class BaseCommand
+      def initialize( task, config, options = {} )
+        @task             = task
+        @config           = config
 
-require 'boxgrinder-node/node'
+        @log              = options[:log]           || Logger.new(STDOUT)
+        @queue_helper     = options[:queue_helper]  || QueueHelper.new( @config, :log => @log )
+        @exec_helper      = options[:exec_helper]   || ExecHelper.new( :log => @log )
 
-BoxGrinder::Node::Node.new.listen
+        after_initialize
+      end
+
+      def after_initialize
+      end
+    end
+  end
+end
