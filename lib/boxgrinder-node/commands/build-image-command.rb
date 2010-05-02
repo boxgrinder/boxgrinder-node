@@ -25,47 +25,29 @@ module BoxGrinder
   module Node
     class BuildImageCommand < BaseCommand
       def after_initialize
-        @appliance_config = @task.data[:appliance_config].init
-        @format           = @task.data[:format]
+        @appliance_config = @task.data[:appliance_config].init_arch
+        @platform         = @task.data[:platform]
         @image_id         = @task.data[:image_id]
       end
 
       def execute
-        store_definition
-        clean_build_directory
+        definition_file = store_definition
 
-        @log.info "Building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format..."
+        @log.info "Building image for #{@appliance_config.name} appliance (#{@appliance_config.hardware.arch}) appliance and #{@platform} platform..."
 
-        command = nil
+        @queue_helper.enqueue(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status => :building})
 
-        case @format
-          when 'VMWARE' then
-            command = "appliance:#{@appliance_config.name}:vmware:personal appliance:#{@appliance_config.name}:vmware:enterprise"
-          when 'EC2' then
-            command = "appliance:#{@appliance_config.name}:ec2"
-          when 'RAW' then
-            command = "appliance:#{@appliance_config.name}"
-          else
-            @log.error "Not valid image format:' #{@format}'."
-        end
-
-        @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status => :building } )
+        platform = @platform.nil? ? '' : "-p #{@platform}"
 
         begin
-          @exec_helper.execute "cd #{@config.build_location} && boxgrinder #{command}"
+          @exec_helper.execute "cd #{@config.build_location} && boxgrinder-build --trace build #{definition_file} -f #{platform}"
 
-          @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format was built successfully."
-          @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status  => :built } )
+          @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format was built successfully."
+          @queue_helper.enqueue(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :built})
         rescue
-          @log.error "An error occurred while building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@format}' format. Check logs for more info."
-          @queue_helper.enqueue( IMAGE_MANAGEMENT_QUEUE, { :id => @image_id, :status  => :error } )
+          @log.error "An error occurred while building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format. Check logs for more info."
+          @queue_helper.enqueue(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :error})
         end
-      end
-
-      def clean_build_directory
-        @log.debug "Cleaning build directory for appliance #{@appliance_config.name}..."
-        @exec_helper.execute( "cd #{@config.build_location} && rm -rf build/appliances/#{@appliance_config.hardware.arch}/#{@appliance_config.os.name}/#{@appliance_config.os.version}/#{@appliance_config.name}/#{@format.downcase}" )
-        @log.debug "Build directory is clean."
       end
 
       def store_definition
@@ -74,10 +56,12 @@ module BoxGrinder
         appliances_dir  = "#{@config.build_location}/appliances"
         file            = "#{appliances_dir}/#{@appliance_config.name}.appl"
 
-        FileUtils.mkdir_p( appliances_dir )
-        File.open(file, 'w') {|f| f.write(@appliance_config.definition.to_yaml) }
+        FileUtils.mkdir_p(appliances_dir)
+        File.open(file, 'w') { |f| f.write(@appliance_config.to_yaml) }
 
         @log.debug "Definition stored in '#{file}' file."
+
+        file
       end
     end
   end

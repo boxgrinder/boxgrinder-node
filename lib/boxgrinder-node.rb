@@ -22,8 +22,8 @@ require 'rubygems'
 
 gem 'torquebox-messaging-container', '>= 1.0.0'
 gem 'torquebox-messaging-client', '>= 1.0.0'
-gem 'boxgrinder-build', '>= 0.0.1'
 
 require 'boxgrinder-node/node'
 
 BoxGrinder::Node::Node.new.listen
+

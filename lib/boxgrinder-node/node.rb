@@ -60,7 +60,6 @@ module BoxGrinder
 
           consumers {
             map ImageConsumer, "/queues/boxgrinder/#{Node.config.os_name}/#{Node.config.os_version}/#{Node.config.arch}/image"
-            map PackageConsumer, "/queues/boxgrinder/#{Node.config.os_name}/#{Node.config.os_version}/#{Node.config.arch}/package"
           }
         }
 
