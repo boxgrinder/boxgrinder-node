@@ -19,7 +19,6 @@
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
 require 'boxgrinder-node/commands/build-image-command'
-require 'boxgrinder-node/commands/remove-image-command'
 require 'boxgrinder-core/models/appliance-config'
 require 'boxgrinder-core/models/task'
 
