@@ -59,7 +59,7 @@ module BoxGrinder
           naming_provider_url "jnp://#{Node.config.rest_server_address}:#{Node.config.naming_port}/"
 
           consumers {
-            map ImageConsumer, "/queues/boxgrinder/#{Node.config.os_name}/#{Node.config.os_version}/#{Node.config.arch}/image"
+            map ImageConsumer, "/queues/boxgrinder/image", "os_name = '#{Node.config.os_name}' AND os_version = '#{Node.config.os_version}' AND arch = '#{Node.config.arch}'"
           }
         }
 
