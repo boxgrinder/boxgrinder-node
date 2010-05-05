@@ -18,35 +18,15 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'boxgrinder-node/commands/build-package-command'
-require 'boxgrinder-core/models/appliance-config'
-require 'boxgrinder-core/models/task'
-
 module BoxGrinder
   module Node
-    class PackageConsumer
-      def on_object( payload )
-        @task         = payload
+    class ManagementConsumer
+      def on_text( response )
         @log          = Node.log
-        @node_config  = Node.config
 
-        @log.info "Received new task."
-        @log.debug "Message:\n#{@task.to_yaml}"
-
-        begin
-          case @task.action
-            when :build then
-              BuildPackageCommand.new( @task, @node_config, :log => @log ).execute
-            else
-              raise "Not known Task action requested: #{@task.action}"
-          end
-
-          @log.info "Task handled."
-        rescue => e
-          @log.error e
-          @log.error "An error occurred while executing task. See above for more info."
-          # TODO resend information about error or put this task back into queue
-        end
+        @log.debug "Received management response: #{response}"
+        
+        @log.info "Node registered."
       end
     end
   end

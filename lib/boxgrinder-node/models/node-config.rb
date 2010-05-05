@@ -66,6 +66,8 @@ module BoxGrinder
       attr_reader :arch
       attr_reader :os_name
       attr_reader :os_version
+      
+      attr_accessor :name
     end
   end
 end

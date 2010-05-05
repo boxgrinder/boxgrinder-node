@@ -24,18 +24,43 @@ require 'logger'
 
 module BoxGrinder
   class QueueHelper
-    def initialize( config, options = {} )
+    def initialize(config, options = {})
       @config = config
       @log    = options[:log] || Logger.new(STDOUT)
     end
 
-    def enqueue( queue_name, object, host = @config.rest_server_address, port = @config.naming_port )
-      @log.debug "Putting new message into queue '#{queue_name}'."
-      @log.debug "Message:\n#{object.to_yaml}"
+    def send(queue_name, object, opts = {})
+      host    = opts[:host] || @config.rest_server_address
+      port    = opts[:port] || @config.naming_port
 
-      TorqueBox::Messaging::Client.connect( :naming_provider_url => "jnp://#{host}:#{port}/" ) { |client| client.send( queue_name, :object => object ) }
+      type    = object.is_a?(String) ? :text : :object
+
+      type    = opts[:type] unless opts[:type].nil?
+
+      @log.debug "Putting new message into queue '#{queue_name}'."
+      @log.trace "Message:\n#{object.to_yaml}"
+
+      TorqueBox::Messaging::Client.connect(:naming_provider_url => "jnp://#{host}:#{port}/") { |client| client.send(queue_name, type => object) }
 
       @log.debug "Message put into queue."
+    end
+
+    def receive(queue_name, opts = {})
+      filter  = opts[:filter]
+      host    = opts[:host] || @config.rest_server_address
+      port    = opts[:port] || @config.naming_port
+      raw     = opts[:raw]  || false
+
+      @log.debug "Waiting for message in queue '#{queue_name}' using filter: '#{filter}'."
+      TorqueBox::Messaging::Client.connect(:naming_provider_url => "jnp://#{host}:#{port}/") { |client| return client.receive(queue_name, :filter => filter, :raw => raw) }
+    end
+
+    def client(opts = {})
+      host          = opts[:host] || @config.rest_server_address
+      port          = opts[:port] || @config.naming_port
+
+      @log.debug "Creating TB messaging client..."
+      TorqueBox::Messaging::Client.connect(:naming_provider_url => "jnp://#{host}:#{port}/") { |client| yield client }
     end
   end
 end

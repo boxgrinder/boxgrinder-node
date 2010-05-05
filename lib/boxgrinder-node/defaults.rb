@@ -22,7 +22,6 @@ module BoxGrinder
   module Node
     IMAGE_MANAGEMENT_QUEUE    = '/queues/boxgrinder/manage/image'
     NODE_MANAGEMENT_QUEUE     = '/queues/boxgrinder/manage/node'
-    PACKAGE_MANAGEMENT_QUEUE  = '/queues/boxgrinder/manage/package'
 
     DEFAULT_REST_SERVER       = "localhost"
     DEFAULT_NAMING_PORT       = 1099

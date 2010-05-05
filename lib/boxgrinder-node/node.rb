@@ -22,8 +22,8 @@ require 'rubygems'
 require 'torquebox-messaging-container'
 require 'boxgrinder-core/helpers/log-helper'
 require 'boxgrinder-node/models/node-config'
-require 'boxgrinder-node/consumers/image-consumer'
-require 'boxgrinder-node/consumers/package-consumer'
+require 'boxgrinder-node/consumers/build-image-consumer'
+require 'boxgrinder-node/consumers/management-consumer'
 require 'boxgrinder-node/validators/node-config-validator'
 require 'boxgrinder-node/defaults'
 
@@ -33,15 +33,15 @@ module BoxGrinder
       def initialize
         config_location = ENV['BG_CONFIG_FILE'] || DEFAULT_NODE_CONFIG_LOCATION
 
-        NodeConfigValidator.new.validate( config_location )
+        NodeConfigValidator.new.validate(config_location)
 
-        @@config      = NodeConfig.new( config_location )
+        @@config      = NodeConfig.new(config_location)
         @config       = Node.config
 
-        @@log         = LogHelper.new( @config.log_location )
+        @@log         = LogHelper.new(@config.log_location)
         @log          = Node.log
 
-        @queue_helper = QueueHelper.new( @config, :log => @log )
+        @queue_helper = QueueHelper.new(@config, :log => @log)
       end
 
       def self.config
@@ -52,28 +52,74 @@ module BoxGrinder
         @@log
       end
 
+      def start
+        register
+        listen
+      end
+
+      def register
+        @log.info "Registering node with BoxGrinder REST server..."
+        @log.trace "BoxGrinder REST server address: #{@config.rest_server_address}"
+
+        response = nil
+
+        begin
+          @queue_helper.client do |client|
+            response = client.send_and_receive(
+                    NODE_MANAGEMENT_QUEUE,
+                    :object => {
+                            :action => :register,
+                            :node => {
+                                    :address    => @config.address,
+                                    :arch       => @config.arch,
+                                    :os_name    => @config.os_name,
+                                    :os_version => @config.os_version
+                            }, :timeout => 0
+                    }
+            )
+          end
+        rescue => e
+          @log.error e
+        end
+
+        if response.nil? or !response.is_a?(String)
+          @log.fatal "Couldn't register node in BoxGrinder REST server, aborting."
+          abort
+        end
+
+        @config.name = response
+
+        @log.info "Node registered under '#{@config.name}' name."
+      end
+
       # TODO get rid of class variables!
-
       def listen
-        container = TorqueBox::Messaging::Container.new {
-          naming_provider_url "jnp://#{Node.config.rest_server_address}:#{Node.config.naming_port}/"
-
-          consumers {
-            map ImageConsumer, "/queues/boxgrinder/image", "os_name = '#{Node.config.os_name}' AND os_version = '#{Node.config.os_version}' AND arch = '#{Node.config.arch}'"
-          }
-        }
-
         @log.info "Starting BoxGrinder Node..."
-        @log.debug "NodeConfig:\n#{@config.to_yaml}"
+        @log.trace "NodeConfig:\n#{@config.to_yaml}"
+
+        config = @config
+
+        begin
+          container = TorqueBox::Messaging::Container.new {
+            naming_provider_url "jnp://#{config.rest_server_address}:#{config.naming_port}/"
+
+            consumers {
+              map BuildImageConsumer, "/queues/boxgrinder/image/create", "os_name = '#{config.os_name}' AND os_version = '#{config.os_version}' AND arch = '#{config.arch}'"
+            #map ConvertImageConsumer, "/queues/boxgrinder/image/convert", "node = '#{config.name}'"
+            #map DeliverImageConsumer, "/queues/boxgrinder/image/deliver", "node = '#{config.name}'"
+            }
+          }
+        rescue => e
+          @log.error e
+          @log.fatal "Couldn't bind to queues. See log for more information, aborting."
+          abort
+        end
 
         container.start
 
-        @log.info "Registering node with BoxGrinder REST server (#{@config.rest_server_address})..."
-        @queue_helper.enqueue( NODE_MANAGEMENT_QUEUE, { :action => :register, :node => { :address => @config.address, :arch => @config.arch, :os_name => @config.os_name, :os_version => @config.os_version }} )
-        @log.info "Node registered."
-
         @log.info "BoxGrinder Node is started and waiting for tasks."
-        container.wait_until( 'INT' )
+        container.wait_until('INT')
+        container.stop
         @log.info "Shutting down BoxGrinder Node."
       end
     end

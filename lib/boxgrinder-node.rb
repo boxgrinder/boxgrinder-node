@@ -25,5 +25,5 @@ gem 'torquebox-messaging-client', '>= 1.0.0'
 
 require 'boxgrinder-node/node'
 
-BoxGrinder::Node::Node.new.listen
+BoxGrinder::Node::Node.new.start
 

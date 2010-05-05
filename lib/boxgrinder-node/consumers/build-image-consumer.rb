@@ -24,8 +24,8 @@ require 'boxgrinder-core/models/task'
 
 module BoxGrinder
   module Node
-    class ImageConsumer
-      def on_object( payload )
+    class BuildImageConsumer
+      def on_object(payload)
         @task         = payload
         @log          = Node.log
         @node_config  = Node.config
@@ -33,10 +33,12 @@ module BoxGrinder
         @log.info "Received new task."
         @log.debug "Message:\n#{@task.to_yaml}"
 
+        abort
+
         begin
           case @task.action
             when :build then
-              BuildImageCommand.new( @task, @node_config, :log => @log ).execute
+              BuildImageCommand.new(@task, @node_config, :log => @log).execute
             else
               raise "Not known Task action requested: #{@task.action}"
           end

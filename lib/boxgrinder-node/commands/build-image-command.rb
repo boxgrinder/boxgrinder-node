@@ -35,7 +35,7 @@ module BoxGrinder
 
         @log.info "Building image for #{@appliance_config.name} appliance (#{@appliance_config.hardware.arch}) appliance and #{@platform} platform..."
 
-        @queue_helper.enqueue(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status => :building})
+        @queue_helper.send(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status => :building})
 
         platform = @platform.nil? ? '' : "-p #{@platform}"
 
@@ -43,10 +43,10 @@ module BoxGrinder
           @exec_helper.execute "cd #{@config.build_location} && boxgrinder-build --trace build #{definition_file} -f #{platform}"
 
           @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format was built successfully."
-          @queue_helper.enqueue(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :built})
+          @queue_helper.send(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :built})
         rescue
           @log.error "An error occurred while building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format. Check logs for more info."
-          @queue_helper.enqueue(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :error})
+          @queue_helper.send(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :error})
         end
       end
 

@@ -45,16 +45,16 @@ module BoxGrinder
             return
         end
 
-        @queue_helper.enqueue( PACKAGE_MANAGEMENT_QUEUE, { :id => @package_id, :status => :building } )
+        @queue_helper.send( PACKAGE_MANAGEMENT_QUEUE, { :id => @package_id, :status => :building } )
 
         begin
           @exec_helper.execute "cd #{@config.build_location} && boxgrinder #{command}"
 
           @log.info "'#{@package_format}' package for '#{@appliance_config.name}' image in '#{@image_format}' format was built successfully."
-          @queue_helper.enqueue( PACKAGE_MANAGEMENT_QUEUE, { :id => @package_id, :status  => :built } )
+          @queue_helper.send( PACKAGE_MANAGEMENT_QUEUE, { :id => @package_id, :status  => :built } )
         rescue
           @log.error "An error occurred while building '#{@package_format}' package for '#{@appliance_config.name}' image in '#{@image_format}'. Check logs for more info."
-          @queue_helper.enqueue( PACKAGE_MANAGEMENT_QUEUE, { :id => @package_id, :status  => :error } )
+          @queue_helper.send( PACKAGE_MANAGEMENT_QUEUE, { :id => @package_id, :status  => :error } )
         end
       end
 
