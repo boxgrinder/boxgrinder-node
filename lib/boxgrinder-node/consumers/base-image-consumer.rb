@@ -27,14 +27,14 @@ module BoxGrinder
   module Node
     class BaseImageConsumer
       def build( definition_file, platform = nil )
-        @log.info "Building #{platform} image for #{@appliance_config.name} appliance, #{@appliance_config.hardware.arch} arch..."
+        @log.info "Building#{platform.nil? ? "" : " #{platform}"} image for #{@appliance_config.name} appliance, #{@appliance_config.hardware.arch} arch..."
 
         platform_cmd = platform.nil? ? "" : "-p #{platform}"
 
         begin
           @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :building, :node => @node_config.name} ) }
           @exec_helper.execute "cd #{@node_config.build_location} && boxgrinder-build --trace build #{definition_file} #{platform_cmd}"
-          @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format was built successfully."
+          @log.info "Image for#{platform.nil? ? "" : " #{platform}"} #{@appliance_config.name} appliance, #{@appliance_config.hardware.arch} arch was built successfully."
           @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :built } ) }
         rescue
           @log.error "An error occurred while building image for '#{@appliance_config.name}' appliance and '#{@platform}' format. Check logs for more info."

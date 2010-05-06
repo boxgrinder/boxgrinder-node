@@ -36,14 +36,18 @@ module BoxGrinder
         init
 
         @log.info "Received new task."
-        @log.trace "Message:\n#{@task.to_yaml}"      
-
-        #@appliance_config = @task.data[:appliance_config].init_arch
-        #@platform         = @task.data[:platform]
-        #@image_id         = @task.data[:image_id]
-
-        @log.info "Received new task."
         @log.trace "Message:\n#{@task.to_yaml}"
+
+        @appliance_config = @task.data[:appliance_config].init
+        @platform         = @task.data[:platform]
+
+        dir = "#{@node_config.build_location}/#{@appliance_config.path.dir.build}/#{@platform}"
+
+        @log.info "Removing #{dir}..."
+
+        FileUtils.rm_rf( dir )
+
+        @log.info "Dir #{dir} removed."
 
         #build( definition_location( @appliance_config.name ), @platform )
       end
