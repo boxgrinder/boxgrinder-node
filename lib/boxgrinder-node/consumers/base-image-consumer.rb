@@ -18,42 +18,34 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'boxgrinder-node/commands/base-command'
-require 'fileutils'
+require 'boxgrinder-core/models/appliance-config'
+require 'boxgrinder-core/helpers/queue-helper'
+require 'boxgrinder-core/helpers/exec-helper'
+require 'boxgrinder-core/models/task'
 
 module BoxGrinder
   module Node
-    class BuildImageCommand < BaseCommand
-      def after_initialize
-        @appliance_config = @task.data[:appliance_config].init_arch
-        @platform         = @task.data[:platform]
-        @image_id         = @task.data[:image_id]
-      end
+    class BaseImageConsumer
+      def build( definition_file, platform = nil )
+        @log.info "Building #{platform} image for #{@appliance_config.name} appliance, #{@appliance_config.hardware.arch} arch..."
 
-      def execute
-        definition_file = store_definition
-
-        @log.info "Building image for #{@appliance_config.name} appliance (#{@appliance_config.hardware.arch}) appliance and #{@platform} platform..."
-
-        @queue_helper.send(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status => :building})
-
-        platform = @platform.nil? ? '' : "-p #{@platform}"
+        platform_cmd = platform.nil? ? "" : "-p #{platform}"
 
         begin
-          @exec_helper.execute "cd #{@config.build_location} && boxgrinder-build --trace build #{definition_file} -f #{platform}"
-
+          @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :building, :node => @node_config.name} ) }
+          @exec_helper.execute "cd #{@node_config.build_location} && boxgrinder-build --trace build #{definition_file} #{platform_cmd}"
           @log.info "Image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format was built successfully."
-          @queue_helper.send(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :built})
+          @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :built } ) }
         rescue
-          @log.error "An error occurred while building image for '#{@appliance_config.name}' (#{@appliance_config.hardware.arch}) appliance and '#{@platform}' format. Check logs for more info."
-          @queue_helper.send(IMAGE_MANAGEMENT_QUEUE, {:id => @image_id, :status  => :error})
+          @log.error "An error occurred while building image for '#{@appliance_config.name}' appliance and '#{@platform}' format. Check logs for more info."
+          @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :error} ) }
         end
       end
 
       def store_definition
         @log.debug "Storing definition file for '#{@appliance_config.name}' appliance..."
 
-        appliances_dir  = "#{@config.build_location}/appliances"
+        appliances_dir  = "#{@node_config.build_location}/appliances"
         file            = "#{appliances_dir}/#{@appliance_config.name}.appl"
 
         FileUtils.mkdir_p(appliances_dir)
@@ -62,6 +54,10 @@ module BoxGrinder
         @log.debug "Definition stored in '#{file}' file."
 
         file
+      end
+
+      def definition_location( appliance_name )
+        "#{@node_config.build_location}/appliances/#{appliance_name}.appl"
       end
     end
   end

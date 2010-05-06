@@ -18,37 +18,34 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'boxgrinder-node/commands/build-image-command'
-require 'boxgrinder-core/models/appliance-config'
-require 'boxgrinder-core/models/task'
+require 'boxgrinder-node/consumers/base-image-consumer'
 
 module BoxGrinder
   module Node
-    class BuildImageConsumer
+    class DestroyImageConsumer < BaseImageConsumer
+      def init( options = {} )
+        @log              = options[:log]           || Node.log
+        @node_config      = options[:node_config]   || Node.config
+        @queue_helper     = options[:queue_helper]  || QueueHelper.new( :host => @node_config.rest_server_address, :port => 1099, :log => @log )
+        @exec_helper      = options[:exec_helper]   || ExecHelper.new( :log => @log )
+      end
+
       def on_object(payload)
-        @task         = payload
-        @log          = Node.log
-        @node_config  = Node.config
+        @task = payload
+
+        init
 
         @log.info "Received new task."
-        @log.debug "Message:\n#{@task.to_yaml}"
+        @log.trace "Message:\n#{@task.to_yaml}"      
 
-        abort
+        #@appliance_config = @task.data[:appliance_config].init_arch
+        #@platform         = @task.data[:platform]
+        #@image_id         = @task.data[:image_id]
 
-        begin
-          case @task.action
-            when :build then
-              BuildImageCommand.new(@task, @node_config, :log => @log).execute
-            else
-              raise "Not known Task action requested: #{@task.action}"
-          end
+        @log.info "Received new task."
+        @log.trace "Message:\n#{@task.to_yaml}"
 
-          @log.info "Task handled."
-        rescue => e
-          @log.error e
-          @log.error "An error occurred while executing task. See above for more info."
-          # TODO resend information about error or put this task back into queue
-        end
+        #build( definition_location( @appliance_config.name ), @platform )
       end
     end
   end
