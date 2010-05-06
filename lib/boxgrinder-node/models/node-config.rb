@@ -20,7 +20,7 @@
 
 require 'boxgrinder-node/defaults'
 require 'rbconfig'
-require 'digest/md5'
+require 'zlib'
 
 module BoxGrinder
   module Node
@@ -54,7 +54,7 @@ module BoxGrinder
           @os_version = redhat_release.scan(/\d+/).to_s
         end
 
-        @name = "node-#{@address}-#{Digest::MD5.hexdigest([ @arch, @os_name, @os_version ].join)}"
+        @name = "node-#{@address}-#{Zlib.crc32([ @arch, @os_name, @os_version ].join).to_s(16)}"
       end
 
       def get_current_ip
