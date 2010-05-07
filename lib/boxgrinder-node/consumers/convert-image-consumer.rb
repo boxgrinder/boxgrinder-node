@@ -26,37 +26,26 @@ module BoxGrinder
       def init( options = {} )
         @log              = options[:log]           || Node.log
         @node_config      = options[:node_config]   || Node.config
-        @queue_helper     = options[:queue_helper]  || QueueHelper.new( :host => @node_config.rest_server_address, :port => 1099, :log => @log )
+        @queue_helper     = options[:queue_helper]  || QueueHelper.new( :log => @log )
         @exec_helper      = options[:exec_helper]   || ExecHelper.new( :log => @log )
       end
 
       def on_object(payload)
-        @task = payload
-
         init
 
-        @appliance_config = @task.data[:appliance_config].init_arch
-        @platform         = @task.data[:platform]
-        @image_id         = @task.data[:image_id]
+        task_received( payload )
 
-        @log.info "Received new task."
-        @log.trace "Message:\n#{@task.to_yaml}"
+        name         = payload.data[:name]
+        platform     = payload.data[:platform]
+        image_id     = payload.data[:image_id]
 
-        build( definition_location( @appliance_config.name ), @platform )
-      end
+        @queue_helper.client( :host => @node_config.rest_server_address ) { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => image_id, :status  => :converting } ) }
 
-      def store_definition
-        @log.debug "Storing definition file for '#{@appliance_config.name}' appliance..."
-
-        appliances_dir  = "#{@node_config.build_location}/appliances"
-        file            = "#{appliances_dir}/#{@appliance_config.name}.appl"
-
-        FileUtils.mkdir_p(appliances_dir)
-        File.open(file, 'w') { |f| f.write(@appliance_config.to_yaml) }
-
-        @log.debug "Definition stored in '#{file}' file."
-
-        file
+        if build( definition_location( name ), platform )
+          @queue_helper.client( :host => @node_config.rest_server_address ) { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => image_id, :status  => :converted } ) }
+        else
+          @queue_helper.client( :host => @node_config.rest_server_address ) { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => image_id, :status  => :error} ) }
+        end
       end
     end
   end

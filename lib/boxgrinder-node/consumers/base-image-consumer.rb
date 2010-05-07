@@ -27,29 +27,31 @@ module BoxGrinder
   module Node
     class BaseImageConsumer
       def build( definition_file, platform = nil )
-        @log.info "Building#{platform.nil? ? "" : " #{platform}"} image for #{@appliance_config.name} appliance, #{@appliance_config.hardware.arch} arch..."
+        appliance_config = YAML.load_file( definition_file ).init_arch
+
+        @log.info "Building#{platform.nil? ? "" : " #{platform}"} image for #{appliance_config.name} appliance, #{appliance_config.hardware.arch} arch..."
 
         platform_cmd = platform.nil? ? "" : "-p #{platform}"
 
         begin
-          @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :building, :node => @node_config.name} ) }
           @exec_helper.execute "cd #{@node_config.build_location} && boxgrinder-build --trace build #{definition_file} #{platform_cmd}"
-          @log.info "Image for#{platform.nil? ? "" : " #{platform}"} #{@appliance_config.name} appliance, #{@appliance_config.hardware.arch} arch was built successfully."
-          @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :built } ) }
+          @log.info "Image for#{platform.nil? ? "" : " #{platform}"} #{appliance_config.name} appliance, #{appliance_config.hardware.arch} arch was built successfully."
+          return true
         rescue
-          @log.error "An error occurred while building image for '#{@appliance_config.name}' appliance and '#{@platform}' format. Check logs for more info."
-          @queue_helper.client { |client| client.send(IMAGE_MANAGEMENT_QUEUE, :object => {:id => @image_id, :status  => :error} ) }
+          @log.error "An error occurred while building image for#{platform.nil? ? "" : " #{platform}"} '#{appliance_config.name}' appliance. Check logs for more info."
+          return false
         end
       end
 
-      def store_definition
-        @log.debug "Storing definition file for '#{@appliance_config.name}' appliance..."
+      def store_definition( appliance_config )
+        @log.debug "Storing definition file for '#{appliance_config.name}' appliance..."
+        @log.trace appliance_config.to_yaml
 
         appliances_dir  = "#{@node_config.build_location}/appliances"
-        file            = "#{appliances_dir}/#{@appliance_config.name}.appl"
+        file            = "#{appliances_dir}/#{appliance_config.name}.appl"
 
         FileUtils.mkdir_p(appliances_dir)
-        File.open(file, 'w') { |f| f.write(@appliance_config.to_yaml) }
+        File.open(file, 'w') { |f| f.write(appliance_config.to_yaml) }
 
         @log.debug "Definition stored in '#{file}' file."
 
@@ -58,6 +60,11 @@ module BoxGrinder
 
       def definition_location( appliance_name )
         "#{@node_config.build_location}/appliances/#{appliance_name}.appl"
+      end
+
+      def task_received( payload )
+        @log.info "Received new image task."
+        @log.trace "Message:\n#{payload.to_yaml}"
       end
     end
   end
