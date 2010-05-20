@@ -20,6 +20,7 @@
 
 require 'rubygems'
 
+gem 'boxgrinder-core', '>= 0.0.8'
 gem 'torquebox-messaging-container', '>= 1.0.0'
 gem 'torquebox-messaging-client', '>= 1.0.0'
 
