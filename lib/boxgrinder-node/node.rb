@@ -26,6 +26,7 @@ require 'boxgrinder-node/models/node-config'
 require 'boxgrinder-node/consumers/create-image-consumer'
 require 'boxgrinder-node/consumers/convert-image-consumer'
 require 'boxgrinder-node/consumers/destroy-image-consumer'
+require 'boxgrinder-node/consumers/deliver-image-consumer'
 require 'boxgrinder-node/consumers/management-consumer'
 require 'boxgrinder-node/validators/node-config-validator'
 require 'boxgrinder-node/defaults'
@@ -137,7 +138,7 @@ module BoxGrinder
               map CreateImageConsumer, "/queues/boxgrinder/image/create", "os_name = '#{config.os_name}' AND os_version = '#{config.os_version}' AND arch = '#{config.arch}'"
               map ConvertImageConsumer, "/queues/boxgrinder/image/convert", "node = '#{config.name}'"
               map DestroyImageConsumer, "/queues/boxgrinder/image/destroy", "node = '#{config.name}'"
-            #map DeliverImageConsumer, "/queues/boxgrinder/image/deliver", "node = '#{config.name}'"
+              map DeliverImageConsumer, "/queues/boxgrinder/image/deliver", "node = '#{config.name}'"
             }
           }
         rescue => e
