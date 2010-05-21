@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env jruby
 
 # JBoss, Home of Professional Open Source
 # Copyright 2009, Red Hat Middleware LLC, and individual contributors
@@ -20,4 +20,12 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'boxgrinder-node'
+require 'rubygems'
+
+gem 'boxgrinder-core', '>= 0.0.8'
+gem 'torquebox-messaging-container', '>= 1.0.0'
+gem 'torquebox-messaging-client', '>= 1.0.0'
+
+require 'boxgrinder-node/node'
+
+BoxGrinder::Node::Node.new.start

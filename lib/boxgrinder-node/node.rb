@@ -19,6 +19,7 @@
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
 require 'rubygems'
+require 'java'
 require 'torquebox-messaging-container'
 require 'boxgrinder-core/helpers/log-helper'
 require 'boxgrinder-core/helpers/queue-helper'
@@ -30,6 +31,21 @@ require 'boxgrinder-node/consumers/deliver-image-consumer'
 require 'boxgrinder-node/consumers/management-consumer'
 require 'boxgrinder-node/validators/node-config-validator'
 require 'boxgrinder-node/defaults'
+
+class Java::org.torquebox.messaging.container::Container
+  def wait_until( signals )
+    keep_running = true
+
+    signals.each do |signal|
+      Signal.trap( signal ) { keep_running = false }
+    end
+
+    while ( keep_running )
+      sleep( 1 )
+    end
+    stop
+  end
+end
 
 module BoxGrinder
   module Node
@@ -45,7 +61,7 @@ module BoxGrinder
         @@log         = LogHelper.new( :location => @config.log_location)
         @log          = Node.log
 
-        @queue_helper = QueueHelper.new(:host => @config.rest_server_address, :port => 1099, :log => @log)
+        @queue_helper = QueueHelper.new( :log => @log )
       end
 
       def self.config
@@ -68,7 +84,7 @@ module BoxGrinder
         response = nil
 
         begin
-          @queue_helper.client do |client|
+          @queue_helper.client( :host => @config.rest_server_address ) do |client|
             response = client.send_and_receive(
                     NODE_MANAGEMENT_QUEUE,
                     :object => {
@@ -101,7 +117,7 @@ module BoxGrinder
         response = nil
 
         begin
-          @queue_helper.client do |client|
+          @queue_helper.client( :host => @config.rest_server_address  ) do |client|
             response = client.send_and_receive(
                     NODE_MANAGEMENT_QUEUE,
                     :object => {
@@ -150,7 +166,7 @@ module BoxGrinder
         container.start
 
         @log.info "BoxGrinder Node is started and waiting for tasks."
-        container.wait_until('INT')
+        container.wait_until( ['TERM', 'INT'] )
         @log.info "Shutting down BoxGrinder node..."
         unregister
         container.stop

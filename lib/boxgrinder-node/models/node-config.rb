@@ -40,7 +40,7 @@ module BoxGrinder
           @build_location       = config['build_location'] unless config['build_location'].nil?
         end
 
-        @log_location         ||= ENV['BG_LOG_LOCATION']
+        @log_location         ||= '/var/log/boxgrinder-node.log'
         @rest_server_address  ||= DEFAULT_REST_SERVER
         @naming_port          ||= DEFAULT_NAMING_PORT
         @log_location         ||= DEFAULT_NODE_LOG_LOCATION
