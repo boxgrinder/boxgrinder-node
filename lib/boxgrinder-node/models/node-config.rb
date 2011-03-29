@@ -1,11 +1,9 @@
-# JBoss, Home of Professional Open Source
-# Copyright 2009, Red Hat Middleware LLC, and individual contributors
-# by the @authors tag. See the copyright.txt in the distribution for a
-# full listing of individual contributors.
+#
+# Copyright 2010 Red Hat, Inc.
 #
 # This is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as
-# published by the Free Software Foundation; either version 2.1 of
+# published by the Free Software Foundation; either version 3 of
 # the License, or (at your option) any later version.
 #
 # This software is distributed in the hope that it will be useful,
@@ -18,58 +16,56 @@
 # Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
-require 'boxgrinder-node/defaults'
+require 'boxgrinder-core/helpers/log-helper'
+require 'hashery/opencascade'
 require 'rbconfig'
 require 'zlib'
 
 module BoxGrinder
   module Node
-    class NodeConfig
-      def initialize( config_file )
-        @os_name        = 'unknown'
-        @address        = get_current_ip
-        @arch           = RbConfig::CONFIG['host_cpu']
-        @build_location = Dir.pwd
+    class NodeConfig < OpenCascade
+      def initialize
+        super({})
 
-        if File.exists?( config_file )
-          config = YAML.load_file( config_file )
+        address = get_current_ip
+        arch = RbConfig::CONFIG['host_cpu'].eql?('amd64') ? 'x86_64' : RbConfig::CONFIG['host_cpu']
 
-          @rest_server_address  = config['rest_server_address']
-          @naming_port          = config['naming_port']
-          @log_location         = config['log_location']
-          @build_location       = config['build_location'] unless config['build_location'].nil?
-        end
 
-        @log_location         ||= '/var/log/boxgrinder-node.log'
-        @rest_server_address  ||= DEFAULT_REST_SERVER
-        @naming_port          ||= DEFAULT_NAMING_PORT
-        @log_location         ||= DEFAULT_NODE_LOG_LOCATION
+        merge!(
+            :rest_server_host => 'localhost',
+            :rest_server_port => 1099,
+            :build_path => 'build',
+            :timeout => 30000, # 30 sec
 
-        if File.exists?( '/etc/redhat-release' )
-          redhat_release = File.read( '/etc/redhat-release' )
+            :log_level => :trace,
+            :log_file => 'log/node.log',
 
-          @os_name = 'rhel'   if redhat_release.match( /^Red Hat Enterprise Linux/ )
-          @os_name = 'fedora' if redhat_release.match( /^Fedora/ )
+            :config_file => ENV['BG_CONFIG_FILE'] || "#{ENV['HOME']}/.boxgrinder-node/config",
 
-          @os_version = redhat_release.scan(/\d+/).to_s
-        end
+            :address => address,
+            :os_name => 'unknown',
+            :os_version => 'unknown',
+            :arch => arch
+        )
 
-        @name = "node-#{@address}-#{Zlib.crc32([ @arch, @os_name, @os_version ].join).to_s(16)}"
+        merge!(:name => "node-#{self.address}-#{Zlib.crc32([self.address, self.arch, self.os_name, self.os_version].join).to_s(16)}")
+      end
+
+      def is64bit?
+        self.arch.eql?("x86_64")
+      end
+
+      def read_config_file!
+        symbolize_and_merge!(YAML.load_file(self.config_file)) if File.exists?(self.config_file)
+      end
+
+      def symbolize_and_merge!(values)
+        merge!(values.inject({}) { |memo, (k, v)| memo[k.to_sym] = v; memo })
       end
 
       def get_current_ip
         `ip addr list eth0 | grep "inet " | cut -d' ' -f6 | cut -d/ -f1`.strip
       end
-
-      attr_reader :address
-      attr_reader :rest_server_address
-      attr_reader :naming_port
-      attr_reader :build_location
-      attr_reader :log_location
-      attr_reader :arch
-      attr_reader :os_name
-      attr_reader :os_version
-      attr_reader :name
     end
   end
 end

@@ -1,11 +1,9 @@
-# JBoss, Home of Professional Open Source
-# Copyright 2009, Red Hat Middleware LLC, and individual contributors
-# by the @authors tag. See the copyright.txt in the distribution for a
-# full listing of individual contributors.
+#
+# Copyright 2010 Red Hat, Inc.
 #
 # This is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as
-# published by the Free Software Foundation; either version 2.1 of
+# published by the Free Software Foundation; either version 3 of
 # the License, or (at your option) any later version.
 #
 # This software is distributed in the hope that it will be useful,
@@ -19,159 +17,158 @@
 # 02110-1301 USA, or see the FSF site: http://www.fsf.org.
 
 require 'rubygems'
-require 'java'
+require 'torquebox-messaging'
 require 'torquebox-messaging-container'
+
 require 'boxgrinder-core/helpers/log-helper'
-require 'boxgrinder-core/helpers/queue-helper'
+
 require 'boxgrinder-node/models/node-config'
-require 'boxgrinder-node/consumers/create-image-consumer'
-require 'boxgrinder-node/consumers/convert-image-consumer'
-require 'boxgrinder-node/consumers/destroy-image-consumer'
-require 'boxgrinder-node/consumers/deliver-image-consumer'
-require 'boxgrinder-node/consumers/management-consumer'
-require 'boxgrinder-node/validators/node-config-validator'
-require 'boxgrinder-node/defaults'
-
-class Java::org.torquebox.messaging.container::Container
-  def wait_until( signals )
-    keep_running = true
-
-    signals.each do |signal|
-      Signal.trap( signal ) { keep_running = false }
-    end
-
-    while ( keep_running )
-      sleep( 1 )
-    end
-    stop
-  end
-end
+require 'boxgrinder-node/consumers/image-consumer'
+require 'boxgrinder-node/validators/node-validator'
 
 module BoxGrinder
   module Node
     class Node
-      def initialize
-        config_location = ENV['BG_CONFIG_FILE'] || DEFAULT_NODE_CONFIG_LOCATION
+      IMAGE_MANAGEMENT_QUEUE = '/queues/boxgrinder_rest/manage/image'
+      NODE_MANAGEMENT_QUEUE = '/queues/boxgrinder_rest/manage/node'
+      NODE_MANAGEMENT_TOPIC = '/topics/boxgrinder_rest/node'
 
-        NodeConfigValidator.new.validate(config_location)
+      def initialize(options = {})
+        @config = options[:config] || NodeConfig.new
+        @log = options[:log] || LogHelper.new(:location => @config.log_file, :level => @config.log_level)
 
-        @@config      = NodeConfig.new(config_location)
-        @config       = Node.config
+        NodeValidator.new(@config, :log => @log).validate
+        @config.read_config_file!
 
-        @@log         = LogHelper.new( :location => @config.log_location)
-        @log          = Node.log
-
-        @queue_helper = QueueHelper.new( :log => @log )
-      end
-
-      def self.config
-        @@config
-      end
-
-      def self.log
-        @@log
+        @log.trace "NodeConfig:\n#{@config.to_yaml}"
       end
 
       def start
+        @log.info "Starting new BoxGrinder Node..."
+
+        t = Thread.new { wait_for_confirmation(:register) }
+        sleep 1
         register
-        listen
+        t.join
+
+        dispatcher = bind_consumers
+
+        @log.trace "Starting messaging dispatcher..."
+
+        begin
+          dispatcher.start
+        rescue => e
+          @log.fatal e.message
+          @log.fatal "Couldn't start messaging dispatcher, aborting."
+          abort
+        end
+
+        @log.trace "Messaging dispatcher started."
+        @log.info "BoxGrinder Node is started and waiting for tasks."
+
+        wait_for_break
+
+        begin
+          dispatcher.stop
+        rescue => e
+          @log.warn e.message
+          @log.warn "Couldn't stop messaging dispatcher."
+        end
+
+        t = Thread.new { wait_for_confirmation(:unregister) }
+        sleep 1
+        unregister
+        t.join
+
+        exit # clean shutdown
       end
 
       def register
         @log.info "Registering node with BoxGrinder REST server..."
-        @log.trace "BoxGrinder REST server address: #{@config.rest_server_address}"
-
-        response = nil
+        @log.trace "Connecting to BoxGrinder REST server: address: #{@config.rest_server_host}, port: #{@config.rest_server_port}..."
 
         begin
-          @queue_helper.client( :host => @config.rest_server_address ) do |client|
-            response = client.send_and_receive(
-                    NODE_MANAGEMENT_QUEUE,
-                    :object => {
+          queue = TorqueBox::Messaging::Queue.new(NODE_MANAGEMENT_QUEUE, :naming_host => @config.rest_server_host, :naming_port => @config.rest_server_port)
+          queue.publish({
                             :action => :register,
                             :node => {
-                                    :address      => @config.address,
-                                    :arch         => @config.arch,
-                                    :os_name      => @config.os_name,
-                                    :os_version   => @config.os_version,
-                                    :name         => @config.name
-                            }, :timeout => 30
-                    }
-            )
-          end
+                                :name => @config.name,
+                                :address => @config.address
+                            }
+                        })
         rescue => e
           @log.error e
         end
 
-        if response.nil? or !response.is_a?(String) or response != 'OK'
-          @log.fatal "Couldn't register node in BoxGrinder REST server, aborting."
-          abort
-        end
-
-        @log.info "Node registered under '#{@config.name}' name."
+        @log.debug "Registration for node '#{@config.name}' sent."
       end
 
       def unregister
         @log.info "Un-registering node with BoxGrinder REST server..."
 
-        response = nil
-
         begin
-          @queue_helper.client( :host => @config.rest_server_address  ) do |client|
-            response = client.send_and_receive(
-                    NODE_MANAGEMENT_QUEUE,
-                    :object => {
+          queue = TorqueBox::Messaging::Queue.new(NODE_MANAGEMENT_QUEUE, :naming_host => @config.rest_server_host, :naming_port => @config.rest_server_port)
+          queue.publish({
                             :action => :unregister,
-                            :name => @config.name,
-                            :timeout => 30
-                    }
-            )
-          end
+                            :node => {
+                                :name => @config.name
+                            }
+                        })
+
+
         rescue => e
           @log.error e
-        end
-
-        if response.nil? or !response.is_a?(String) or response != 'OK'
-          @log.fatal "Couldn't unregister node in BoxGrinder REST server, aborting."
-          abort
         end
 
         @log.info "Node unregistered."
       end
 
-      # TODO get rid of class variables!
-      def listen
-        @log.info "Starting BoxGrinder Node..."
-        @log.trace "NodeConfig:\n#{@config.to_yaml}"
+      def wait_for_confirmation(operation)
+        @log.info "Waiting for confirmation for #{operation} action..."
 
-        config = @config
+        topic = TorqueBox::Messaging::Topic.new(NODE_MANAGEMENT_TOPIC, :naming_host => @config.rest_server_host, :naming_port => @config.rest_server_port)
+        response = topic.receive(:selector => "node = '#{@config.name}' and operation = '#{operation.to_s}'", :timeout => @config.timeout)
 
-        begin
-          container = TorqueBox::Messaging::Container.new {
-            naming_provider_url "jnp://#{config.rest_server_address}:#{config.naming_port}/"
-
-            consumers {
-              map CreateImageConsumer, "/queues/boxgrinder/image/create", "os_name = '#{config.os_name}' AND os_version = '#{config.os_version}' AND arch = '#{config.arch}'"
-              map ConvertImageConsumer, "/queues/boxgrinder/image/convert", "node = '#{config.name}'"
-              map DestroyImageConsumer, "/queues/boxgrinder/image/destroy", "node = '#{config.name}'"
-              map DeliverImageConsumer, "/queues/boxgrinder/image/deliver", "node = '#{config.name}'"
-            }
-          }
-        rescue => e
-          @log.error e.backtrace.join($/)
-          @log.fatal "Couldn't bind to queues. See log for more information, aborting."
+        if response.nil? or !response.is_a?(String) or response != 'ok'
+          @log.fatal "No or invalid confirmation received, aborting."
           abort
         end
 
-        container.start
-
-        @log.info "BoxGrinder Node is started and waiting for tasks."
-        container.wait_until( ['TERM', 'INT'] )
-        @log.info "Shutting down BoxGrinder node..."
-        unregister
-        container.stop
-        @log.info "Halting."
+        @log.info "Operation #{operation} confirmed."
       end
+
+      def bind_consumers
+        @log.debug "Binding queue consumers..."
+
+        config = @config
+        log = @log
+
+        dispatcher = TorqueBox::Messaging::Dispatcher.new(:naming_host => @config.rest_server_host, :naming_port => @config.rest_server_port) do
+          map ImageConsumer, "/queues/boxgrinder_rest/image",
+              :filter => "#{config.is64bit? ? "arch = 'i386' OR arch = 'x86_64'" : "arch = 'i386'"}",
+              :config => {:log => log, :config => config}
+        end
+
+        @log.debug "Consumers bound."
+
+        dispatcher
+      end
+
+      def wait_for_break
+        keep_running = true
+
+        ['TERM', 'INT'].each do |signal|
+          Signal.trap(signal) do
+            @log.info "Shutting down BoxGrinder node..."
+            keep_running = false
+          end
+        end
+
+        while (keep_running)
+          sleep(1)
+        end
+      end
+
     end
   end
 end

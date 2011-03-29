@@ -1,0 +1,12 @@
+type: map
+mapping:
+ "rest_server_host":
+    type: str
+    required: no
+ "rest_server_port":
+    type: int
+    required: no
+ "build_path":
+    type: str
+    required: no
+
