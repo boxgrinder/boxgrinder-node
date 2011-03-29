@@ -29,8 +29,8 @@ Install ruby binding for libguestfs in usual way:
 
 We need to copy libguestfs Ruby bindings to JRuby lib dirs. For x86_64 Fedora 14 you'll have to:
 
-   cp /usr/lib/ruby/site_ruby/1.8/guestfs.rb $JRUBY_HOME/lib/ruby/site_ruby/1.8/
-   cp /usr/lib64/ruby/site_ruby/1.8/x86_64-linux/_guestfs.so $JRUBY_HOME/lib/native/x86_64-Linux/
+    cp /usr/lib/ruby/site_ruby/1.8/guestfs.rb $JRUBY_HOME/lib/ruby/site_ruby/1.8/
+    cp /usr/lib64/ruby/site_ruby/1.8/x86_64-linux/_guestfs.so $JRUBY_HOME/lib/native/x86_64-Linux/
 
 # Launching
 
